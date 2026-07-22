@@ -1,0 +1,5 @@
+idmefv2_processed_events.csv
+  Deduplication store for processed lifecycle event_uid values.
+  Written by state_store.py after each successful event processing.
+  Columns: event_uid, rule_id, status, review_epoch, processed_at, result
+  Do not edit manually while the alert action is running.

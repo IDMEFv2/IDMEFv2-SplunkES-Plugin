@@ -1,0 +1,47 @@
+# Splunk local configuration and credentials
+local/*
+!local/.gitkeep
+
+# Python generated files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Backup and temporary files
+*.bak
+*.bak.*
+*.backup
+*.tmp
+*.temp
+*.swp
+*.swo
+*~
+
+# Disabled or alternative configuration files
+*.disabled
+
+# Generated packages
+*.tar.gz
+*.tgz
+*.zip
+
+# Logs and generated payloads
+*.log
+idmefv2_generated_payload*.json
+idmefv2_internal_alert_action_payload*.json
+
+# IDE and editor files
+.vscode/
+.idea/
+*.code-workspace
+
+# Operating system files
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Test and coverage artifacts
+.pytest_cache/
+.coverage
+coverage.xml
+htmlcov/

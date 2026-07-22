@@ -1,0 +1,189 @@
+<form class="form-horizontal form-complex">
+  <div class="control-group">
+    <label class="control-label">Send IDMEFv2 Splunk ES alert</label>
+    <div class="controls">
+      <span class="help-block">
+        Build an IDMEFv2 V08 alert payload from Splunk ES incident review lifecycle events.
+      </span>
+    </div>
+  </div>
+
+  <div class="control-group">
+    <label class="control-label" for="enable_http_delivery">Enable HTTP delivery</label>
+    <div class="controls">
+      <select name="action.idmefv2_internal_alert_action.param.enable_http_delivery" id="enable_http_delivery">
+        <option value="0">0 - Log locally only</option>
+        <option value="1">1 - POST to target URL</option>
+      </select>
+      <span class="help-block">Set to 1 to POST the IDMEFv2 payload to the configured Target URL. Default: 0.</span>
+    </div>
+  </div>
+
+  <div class="control-group">
+    <label class="control-label" for="target_url">Target URL</label>
+    <div class="controls">
+      <input type="text" name="action.idmefv2_internal_alert_action.param.target_url" id="target_url" />
+      <span class="help-block">HTTP endpoint to receive the IDMEFv2 payload. Required only when HTTP delivery is enabled.</span>
+    </div>
+  </div>
+
+  <div class="control-group">
+    <label class="control-label" for="auth_type">Auth Type</label>
+    <div class="controls">
+      <select name="action.idmefv2_internal_alert_action.param.auth_type" id="auth_type">
+        <option value="none">None</option>
+        <option value="bearer">Bearer token</option>
+        <option value="basic">Basic username/password</option>
+      </select>
+      <span class="help-block">Authentication mode for the target URL. Default: none.</span>
+    </div>
+  </div>
+
+  <div class="control-group">
+    <label class="control-label" for="auth_token">Bearer Auth Token</label>
+    <div class="controls">
+      <input type="password" name="action.idmefv2_internal_alert_action.param.auth_token" id="auth_token" />
+      <span class="help-block">Used only when Auth Type is Bearer token. Leave empty otherwise.</span>
+    </div>
+  </div>
+
+  <div class="control-group">
+    <label class="control-label" for="auth_username">Basic Auth Username</label>
+    <div class="controls">
+      <input type="text" name="action.idmefv2_internal_alert_action.param.auth_username" id="auth_username" />
+      <span class="help-block">Used only when Auth Type is Basic username/password.</span>
+    </div>
+  </div>
+
+  <div class="control-group">
+    <label class="control-label" for="auth_password">Basic Auth Password</label>
+    <div class="controls">
+      <input type="password" name="action.idmefv2_internal_alert_action.param.auth_password" id="auth_password" />
+      <span class="help-block">Used only when Auth Type is Basic username/password.</span>
+    </div>
+  </div>
+
+  <div class="control-group">
+    <label class="control-label" for="verify_ssl">Verify SSL</label>
+    <div class="controls">
+      <select name="action.idmefv2_internal_alert_action.param.verify_ssl" id="verify_ssl">
+        <option value="1">1 - Verify SSL certificates</option>
+        <option value="0">0 - Do not verify SSL certificates</option>
+      </select>
+      <span class="help-block">Set to 0 only for lab environments or self-signed certificates. Default: 1.</span>
+    </div>
+  </div>
+
+  <div class="control-group">
+    <label class="control-label" for="timeout_seconds">Timeout seconds</label>
+    <div class="controls">
+      <input type="text" name="action.idmefv2_internal_alert_action.param.timeout_seconds" id="timeout_seconds" />
+      <span class="help-block">HTTP timeout for REST calls. Default: 30.</span>
+    </div>
+  </div>
+
+  <div class="control-group">
+    <label class="control-label" for="enable_notable_enrichment">Enable notable enrichment</label>
+    <div class="controls">
+      <select name="action.idmefv2_internal_alert_action.param.enable_notable_enrichment" id="enable_notable_enrichment">
+        <option value="1">1 - Enabled</option>
+        <option value="0">0 - Disabled</option>
+      </select>
+      <span class="help-block">Attempt optional enrichment from index=notable. Default: 1.</span>
+    </div>
+  </div>
+
+  <div class="control-group">
+    <label class="control-label" for="notable_earliest">Notable earliest window</label>
+    <div class="controls">
+      <input type="text" name="action.idmefv2_internal_alert_action.param.notable_earliest" id="notable_earliest" />
+      <span class="help-block">Relative time window for index=notable search. Example: -365d. Default: -365d.</span>
+    </div>
+  </div>
+
+  <div class="control-group">
+    <label class="control-label" for="minimum_notable_match_score">Minimum notable match score</label>
+    <div class="controls">
+      <input type="text" name="action.idmefv2_internal_alert_action.param.minimum_notable_match_score" id="minimum_notable_match_score" />
+      <span class="help-block">Minimum candidate scoring threshold for optional index=notable enrichment. Default: 70.</span>
+    </div>
+  </div>
+
+  <div class="control-group">
+    <label class="control-label" for="dedup_enabled">Enable deduplication</label>
+    <div class="controls">
+      <select name="action.idmefv2_internal_alert_action.param.dedup_enabled" id="dedup_enabled">
+        <option value="1">1 - Enabled</option>
+        <option value="0">0 - Disabled</option>
+      </select>
+      <span class="help-block">Skip already-processed event_uid values. Default: 1.</span>
+    </div>
+  </div>
+
+  <div class="control-group">
+    <label class="control-label" for="debug_dump_payload">Debug dump payload</label>
+    <div class="controls">
+      <select name="action.idmefv2_internal_alert_action.param.debug_dump_payload" id="debug_dump_payload">
+        <option value="0">0 - Disabled</option>
+        <option value="1">1 - Enabled</option>
+      </select>
+      <span class="help-block">Write a redacted copy of the runtime alert action payload to the Splunk log directory. Enable only during testing. Default: 0.</span>
+    </div>
+  </div>
+
+  <div class="control-group">
+    <label class="control-label" for="organisation_name">Organisation Name</label>
+    <div class="controls">
+      <input type="text" name="action.idmefv2_internal_alert_action.param.organisation_name" id="organisation_name" />
+      <span class="help-block">IDMEFv2 Organisation.Name value.</span>
+    </div>
+  </div>
+
+  <div class="control-group">
+    <label class="control-label" for="organisation_id">Organisation ID</label>
+    <div class="controls">
+      <input type="text" name="action.idmefv2_internal_alert_action.param.organisation_id" id="organisation_id" />
+      <span class="help-block">IDMEFv2 Organisation.ID value.</span>
+    </div>
+  </div>
+
+  <div class="control-group">
+    <label class="control-label" for="entity_name">Entity Name</label>
+    <div class="controls">
+      <input type="text" name="action.idmefv2_internal_alert_action.param.entity_name" id="entity_name" />
+      <span class="help-block">IDMEFv2 Entity.Name value.</span>
+    </div>
+  </div>
+
+  <div class="control-group">
+    <label class="control-label" for="entity_id">Entity ID</label>
+    <div class="controls">
+      <input type="text" name="action.idmefv2_internal_alert_action.param.entity_id" id="entity_id" />
+      <span class="help-block">IDMEFv2 Entity.ID value.</span>
+    </div>
+  </div>
+
+  <div class="control-group">
+    <label class="control-label" for="analyzer_name">Analyzer Name</label>
+    <div class="controls">
+      <input type="text" name="action.idmefv2_internal_alert_action.param.analyzer_name" id="analyzer_name" />
+      <span class="help-block">Analyzer name. Default: Splunk ES.</span>
+    </div>
+  </div>
+
+  <div class="control-group">
+    <label class="control-label" for="analyzer_model">Analyzer Model</label>
+    <div class="controls">
+      <input type="text" name="action.idmefv2_internal_alert_action.param.analyzer_model" id="analyzer_model" />
+      <span class="help-block">Analyzer model. Default: Splunk Enterprise Security.</span>
+    </div>
+  </div>
+
+  <div class="control-group">
+    <label class="control-label" for="analyzer_hostname">Analyzer Hostname</label>
+    <div class="controls">
+      <input type="text" name="action.idmefv2_internal_alert_action.param.analyzer_hostname" id="analyzer_hostname" />
+      <span class="help-block">Optional analyzer hostname. Leave empty if not required.</span>
+    </div>
+  </div>
+</form>
