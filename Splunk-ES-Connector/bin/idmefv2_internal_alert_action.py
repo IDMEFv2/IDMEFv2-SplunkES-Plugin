@@ -40,7 +40,7 @@ from splunk_rest_client import SplunkRestClient
 from state_store import StateStore
 from alert_state_store import AlertStateStore
 
-APP_FOLDER_NAME = "splunk-idmefv2-internal-alert-app"
+APP_FOLDER_NAME = "Splunk-ES-Connector"
 
 
 def _lookups_dir() -> str:

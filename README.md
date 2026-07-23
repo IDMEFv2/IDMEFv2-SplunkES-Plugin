@@ -26,6 +26,7 @@ The app is lifecycle-aware: the first finding is sent as a new IDMEFv2 alert, wh
 - [Known limitations](#known-limitations)
 - [Project structure](#project-structure)
 - [Recommended acceptance test](#recommended-acceptance-test)
+- [Testing the connector](#testing-the-connector)
 
 ---
 
@@ -824,3 +825,124 @@ The application log should finish each successful action with:
 ```text
 failed=0
 ```
+
+---
+
+## Testing the connector
+
+There are two ways to exercise the connector end to end. Both drive the same lifecycle through the real saved search and alert action; they only differ in the final delivery step.
+
+- **Local JSON dump test** — no external system required. The connector writes the generated IDMEFv2 payload to local files. Use this first, and after any change to the `bin/*.py` mapping or lifecycle logic.
+- **Real delivery test** — requires a reachable HTTP receiver. Confirms authentication, TLS, and that the receiver actually accepts the payload.
+
+### Method 1: local JSON dump test
+
+This method never contacts an external receiver. It is the fastest way to confirm that lifecycle correlation, IDMEFv2 mapping, and `PredID` chaining behave correctly.
+
+1. Configure the alert action:
+
+   ```text
+   Enable HTTP delivery: 0
+   Enable deduplication: 1
+   ```
+
+   Optionally also set `Debug dump payload: 1` to capture the raw trigger payload (redacted) for input troubleshooting — this is separate from the generated IDMEFv2 output described below.
+
+2. Enable the saved search `IDMEFv2 - Splunk ES Incident Review Changes`. For a fast test cycle, use the two-minute schedule described in [Scheduling](#scheduling).
+
+3. Drive one complete lifecycle in Splunk ES Incident Review for a test finding:
+
+   ```text
+   New → In Progress → Closed
+   ```
+
+4. After each transition, wait for the next scheduled run (or run the saved search manually from **Settings → Searches, reports, and alerts**) and confirm success in the application log:
+
+   ```bash
+   tail -n 0 -F "$SPLUNK_HOME/var/log/splunk/idmefv2_internal_alert_app.log" \
+   | grep --line-buffered -Ei 'sent=|skipped=|failed='
+   ```
+
+   Expect `sent=1 skipped=0 failed=0` for each new transition.
+
+5. Inspect the generated payload:
+
+   ```bash
+   python3 -m json.tool \
+     "$SPLUNK_HOME/var/log/splunk/idmefv2_generated_payload_latest.json"
+   ```
+
+   Also available:
+
+   ```text
+   $SPLUNK_HOME/var/log/splunk/idmefv2_generated_payload_<event_uid>.json
+   $SPLUNK_HOME/var/log/splunk/idmefv2_generated_payloads.json   # full history array
+   ```
+
+6. For each of the three messages, verify:
+
+   | Stage | `Status` | `PredID` | `EndTime` |
+   |---|---|---|---|
+   | `New` | `Incident` | absent | absent |
+   | `In Progress` | `Open` | `[<Incident ID>]` | absent |
+   | `Closed` | `Closed` | `[<Open ID>]` | present |
+
+7. Confirm the chain state was recorded:
+
+   ```bash
+   cat "$SPLUNK_HOME/etc/apps/Splunk-ES-Connector/lookups/idmefv2_alert_state.csv"
+   ```
+
+   `last_id` should match the `ID` of the most recently generated message for that finding.
+
+8. Re-run the saved search with no new lifecycle event and confirm no new JSON file/history entry is produced, and the log shows:
+
+   ```text
+   sent=0 skipped=1 failed=0
+   ```
+
+### Method 2: real delivery test
+
+This method requires an HTTP(S) receiver reachable from the Search Head. It can be a disposable test endpoint (for example a local mock server) or the real target IDMEFv2 gateway.
+
+1. Configure the alert action:
+
+   ```text
+   Enable HTTP delivery: 1
+   Target URL:           <receiver endpoint>
+   Auth Type:            <none | bearer | basic>, matching the receiver
+   Verify SSL:           1 (0 only for an isolated test receiver with a self-signed certificate)
+   ```
+
+2. Enable the saved search and drive the same lifecycle as in Method 1:
+
+   ```text
+   New → In Progress → Closed
+   ```
+
+3. Monitor delivery in real time:
+
+   ```bash
+   tail -n 0 -F "$SPLUNK_HOME/var/log/splunk/idmefv2_internal_alert_app.log" \
+   | grep --line-buffered -Ei \
+   'Sending IDMEFv2 payload|IDMEFv2 payload sent successfully|IDMEFv2 payload delivery failed|status_code='
+   ```
+
+4. For each of the three lifecycle messages, confirm:
+   - the log shows `IDMEFv2 payload sent successfully. status_code=2xx`;
+   - the receiver actually stored/accepted the message (check the receiver's own log, database, or API);
+   - `PredID` chaining is consistent with the table in Method 1, step 6, as seen on the receiver side.
+
+5. Confirm state is not advanced on failure: temporarily point `target_url` at an unreachable address (or stop the receiver), trigger a lifecycle transition, and confirm:
+
+   ```text
+   IDMEFv2 payload delivery failed
+   ...
+   failed=1
+   ```
+
+   Then restore the correct `target_url`. On the next run, the same lifecycle event must be retried and delivered — not skipped and not sent with a broken `PredID` chain.
+
+6. Since successful HTTP payloads are not archived locally (see [Known limitations](#known-limitations)), retrieve the accepted message from the receiver itself if payload content must be inspected. `debug_dump_payload=1` only captures the raw Splunk trigger input, not the generated IDMEFv2 output.
+
+Whichever method is used, treat the full lifecycle run as passing only when the [Recommended acceptance test](#recommended-acceptance-test) checklist above is satisfied.
