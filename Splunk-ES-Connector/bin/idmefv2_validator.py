@@ -39,6 +39,8 @@ INTERNAL_ONLY_TOP_LEVEL_FIELDS = {
 
 @dataclass
 class ValidationResult:
+    """Outcome of a static IDMEFv2 payload validation pass."""
+
     is_valid: bool
     errors: list[str]
     warnings: list[str]
@@ -161,6 +163,54 @@ def _validate_endpoint_entities(
             errors.append(f"{field_name}[{index}].ID is required when {field_name} is present.")
 
 
+def _validate_pred_id(alert: dict[str, Any], errors: list[str]) -> None:
+    pred_id = alert.get("PredID")
+
+    if pred_id is None:
+        return
+
+    if not isinstance(pred_id, list):
+        errors.append("PredID must be a list of UUID strings when present.")
+        return
+
+    if not pred_id:
+        errors.append("PredID must not be empty when present.")
+        return
+
+    invalid_pred_ids = [item for item in pred_id if not _is_uuid(item)]
+
+    if invalid_pred_ids:
+        errors.append(
+            "PredID contains invalid UUID value(s): "
+            f"{invalid_pred_ids}."
+        )
+
+
+def _validate_analyzer(alert: dict[str, Any], errors: list[str]) -> None:
+    analyzer = alert.get("Analyzer")
+
+    if not isinstance(analyzer, dict):
+        errors.append("Missing or invalid Analyzer object.")
+    elif not _is_non_empty_string(analyzer.get("Name")):
+        errors.append("Missing or empty Analyzer.Name.")
+
+
+def _validate_confidence(alert: dict[str, Any], errors: list[str]) -> None:
+    confidence = alert.get("Confidence")
+
+    if confidence is None:
+        return
+
+    try:
+        confidence_value = float(confidence)
+    except (TypeError, ValueError):
+        errors.append("Confidence must be a number between 0 and 1 when present.")
+        return
+
+    if confidence_value < 0 or confidence_value > 1:
+        errors.append("Confidence must be between 0 and 1 when present.")
+
+
 def validate_idmefv2_static(alert: dict[str, Any]) -> ValidationResult:
     """Validate only the essential fields needed before delivery.
 
@@ -169,7 +219,8 @@ def validate_idmefv2_static(alert: dict[str, Any]) -> ValidationResult:
     """
     errors: list[str] = []
     warnings: list[str] = [
-        "Static IDMEFv2 validation is active. Full V08 JSON Schema validation is not implemented yet."
+        "Static IDMEFv2 validation is active. "
+        "Full V08 JSON Schema validation is not implemented yet."
     ]
 
     if not isinstance(alert, dict):
@@ -188,34 +239,19 @@ def validate_idmefv2_static(alert: dict[str, Any]) -> ValidationResult:
 
     if alert.get("Version") != IDMEFV2_VERSION:
         errors.append(
-            f"Invalid or missing Version. Expected {IDMEFV2_VERSION!r}, got {alert.get('Version')!r}."
+            f"Invalid or missing Version. Expected {IDMEFV2_VERSION!r}, "
+            f"got {alert.get('Version')!r}."
         )
 
     if not _is_uuid(alert.get("ID")):
         errors.append("Missing or invalid ID. Expected UUID string.")
 
-    pred_id = alert.get("PredID")
-    if pred_id is not None:
-        if not isinstance(pred_id, list):
-            errors.append("PredID must be a list of UUID strings when present.")
-        elif not pred_id:
-            errors.append("PredID must not be empty when present.")
-        else:
-            invalid_pred_ids = [item for item in pred_id if not _is_uuid(item)]
-            if invalid_pred_ids:
-                errors.append(
-                    "PredID contains invalid UUID value(s): "
-                    f"{invalid_pred_ids}."
-                )
+    _validate_pred_id(alert, errors)
 
     if not _is_timestamp_like(alert.get("CreateTime")):
         errors.append("Missing or invalid CreateTime. Expected RFC3339-like timestamp.")
 
-    analyzer = alert.get("Analyzer")
-    if not isinstance(analyzer, dict):
-        errors.append("Missing or invalid Analyzer object.")
-    elif not _is_non_empty_string(analyzer.get("Name")):
-        errors.append("Missing or empty Analyzer.Name.")
+    _validate_analyzer(alert, errors)
 
     _validate_enum_list(alert, "Type", VALID_TYPE, errors)
     _validate_enum_list(alert, "Status", VALID_STATUS, errors)
@@ -225,15 +261,7 @@ def validate_idmefv2_static(alert: dict[str, Any]) -> ValidationResult:
     _validate_list_field(alert, "Category", errors)
     _validate_string_field(alert, "Description", errors)
 
-    confidence = alert.get("Confidence")
-    if confidence is not None:
-        try:
-            confidence_value = float(confidence)
-        except (TypeError, ValueError):
-            errors.append("Confidence must be a number between 0 and 1 when present.")
-        else:
-            if confidence_value < 0 or confidence_value > 1:
-                errors.append("Confidence must be between 0 and 1 when present.")
+    _validate_confidence(alert, errors)
 
     _validate_endpoint_entities(alert, "Source", errors)
     _validate_endpoint_entities(alert, "Target", errors)

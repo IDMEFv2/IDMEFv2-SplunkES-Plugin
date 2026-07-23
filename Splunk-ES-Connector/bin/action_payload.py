@@ -58,7 +58,7 @@ def read_results_file(path: str) -> list[dict[str, Any]]:
     try:
         text = _read_text_file(file_path)
         return _parse_results_text(text, source=str(file_path))
-    except Exception as exc:
+    except Exception as exc:  # pylint: disable=broad-exception-caught
         logger.warning("Could not read results_file %s: %s", file_path, exc)
         return []
 
@@ -138,7 +138,7 @@ def _read_text_file(file_path: Path) -> str:
         with file_path.open("rb") as fh:
             magic = fh.read(2)
             is_gzip = magic == b"\x1f\x8b"
-    except Exception:
+    except Exception:  # pylint: disable=broad-exception-caught
         is_gzip = file_path.suffix.lower() == ".gz"
 
     if is_gzip:
@@ -176,7 +176,7 @@ def _parse_results_text(text: str, source: str = "<results_file>") -> list[dict[
         reader = csv.DictReader(io.StringIO(text))
         rows = [dict(row) for row in reader if row]
         return rows
-    except Exception as exc:
+    except Exception as exc:  # pylint: disable=broad-exception-caught
         logger.warning("Could not parse %s as CSV: %s", source, exc)
         return []
 

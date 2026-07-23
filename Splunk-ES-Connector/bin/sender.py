@@ -135,7 +135,7 @@ def _write_local_payload_documents(payload: dict[str, Any], event_uid: str) -> d
     }
 
 
-def send_or_log(
+def send_or_log(  # pylint: disable=too-many-return-statements
     payload: dict[str, Any],
     config: Config,
     client: SplunkRestClient,
@@ -174,7 +174,7 @@ def send_or_log(
                 payload,
                 event_uid,
             )
-        except Exception as exc:  # noqa: BLE001
+        except Exception as exc:  # pylint: disable=broad-exception-caught
             app_logger.exception(
                 "Could not write local IDMEFv2 payload "
                 "JSON documents. "
@@ -233,15 +233,10 @@ def send_or_log(
         status_code, response_body = client.post_json(
             url=target_url,
             payload=payload,
-            auth_type=config.auth_type,
-            auth_token=config.auth_token,
-            auth_username=config.auth_username,
-            auth_password=config.auth_password,
-            verify_ssl=config.verify_ssl,
-            timeout_seconds=config.timeout_seconds,
+            config=config,
         )
 
-    except Exception as exc:  # noqa: BLE001
+    except Exception as exc:  # pylint: disable=broad-exception-caught
         app_logger.exception(
             "Failed to send IDMEFv2 payload. "
             "event_uid=%s target_url=%s "

@@ -16,7 +16,8 @@ _SPL_HISTORY = (
     '| where isnotnull(review_epoch) '
     '| lookup reviewstatuses_lookup status OUTPUT label as status_label end as status_end '
     '| eval review_time_iso=strftime(review_epoch, "%Y-%m-%dT%H:%M:%S%z") '
-    '| table _key rule_id status status_label status_end review_epoch review_time_iso user owner comment '
+    '| table _key rule_id status status_label status_end review_epoch '
+    'review_time_iso user owner comment '
     '| sort review_epoch'
 )
 

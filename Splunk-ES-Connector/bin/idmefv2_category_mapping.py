@@ -23,7 +23,9 @@ DEFAULT_CATEGORY = "Other.Undetermined"
 
 
 @dataclass(frozen=True)
-class CategoryMappingResult:
+class CategoryMappingResult:  # pylint: disable=too-many-instance-attributes
+    """Outcome of mapping a Splunk ES field/value pair to an IDMEFv2 category."""
+
     idmefv2_category: str
     matched_field: str
     matched_value: str

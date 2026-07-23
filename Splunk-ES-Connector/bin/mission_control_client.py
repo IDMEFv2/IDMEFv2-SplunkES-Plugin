@@ -5,6 +5,7 @@ from __future__ import annotations
 import logging
 from typing import Any
 
+from common_helpers import consolidated_findings as _consolidated_findings
 from splunk_rest_client import SplunkRestClient
 
 INVESTIGATIONS_PATH = "/servicesNS/nobody/missioncontrol/public/v2/investigations"
@@ -47,19 +48,6 @@ def _as_investigation_page(data: Any) -> list[dict[str, Any]]:
         "Unexpected /investigations response type: %s",
         type(data).__name__,
     )
-    return []
-
-
-def _consolidated_findings(investigation: dict[str, Any]) -> list[dict[str, Any]]:
-    """Return consolidated_findings as a list of dictionaries."""
-    cf = investigation.get("consolidated_findings")
-
-    if isinstance(cf, dict):
-        return [cf]
-
-    if isinstance(cf, list):
-        return [item for item in cf if isinstance(item, dict)]
-
     return []
 
 

@@ -13,6 +13,7 @@ from __future__ import annotations
 import logging
 from typing import Any
 
+from common_helpers import consolidated_findings as _consolidated_findings
 from splunk_rest_client import SplunkRestClient
 
 logger = logging.getLogger(__name__)
@@ -121,22 +122,6 @@ def _quoted_or_terms(values: list[str]) -> str:
     return " OR ".join(f'"{_escape_spl(value)}"' for value in values if value)
 
 
-def _consolidated_findings(investigation: dict[str, Any] | None) -> list[dict[str, Any]]:
-    """Return consolidated_findings as a list of dictionaries."""
-    if not investigation:
-        return []
-
-    cf = investigation.get("consolidated_findings")
-
-    if isinstance(cf, dict):
-        return [cf]
-
-    if isinstance(cf, list):
-        return [item for item in cf if isinstance(item, dict)]
-
-    return []
-
-
 def _to_first_scalar(value: Any) -> str:
     """Return first useful scalar value from scalar/list input."""
     if isinstance(value, list):
@@ -176,77 +161,92 @@ def _first_available_cf_value(
     return ""
 
 
-def find_candidates(
+def _direct_candidates(
     client: SplunkRestClient,
     rule_id: str,
+    earliest: str,
+) -> list[dict[str, Any]]:
+    """Strategy 1: direct join by rule_id."""
+    if not rule_id:
+        return []
+
+    try:
+        direct = client.search_export(
+            _SPL_DIRECT.format(
+                earliest=_escape_spl(earliest),
+                rule_id=_escape_spl(rule_id),
+                fields=_FIELDS,
+            )
+        )
+    except RuntimeError as exc:
+        logger.debug(
+            "Direct notable search failed for rule_id=%s: %s",
+            rule_id,
+            exc,
+        )
+        return []
+
+    if direct:
+        logger.debug(
+            "Direct notable match: %d candidates for rule_id=%s",
+            len(direct),
+            rule_id,
+        )
+
+    return direct
+
+
+def _identifier_candidates(
+    client: SplunkRestClient,
+    rule_id: str,
+    earliest: str,
+) -> list[dict[str, Any]]:
+    """Strategy 2: identifier fallback.
+
+    This helps when Mission Control has not created an investigation object,
+    but index=notable contains the notable/finding event whose id is embedded
+    in incident_review_lookup.rule_id.
+    """
+    identifier_terms = _identifier_terms(rule_id)
+
+    if not identifier_terms:
+        return []
+
+    try:
+        identifier_matches = client.search_export(
+            _SPL_IDENTIFIER.format(
+                earliest=_escape_spl(earliest),
+                terms=_quoted_or_terms(identifier_terms),
+                fields=_FIELDS,
+            )
+        )
+    except RuntimeError as exc:
+        logger.debug(
+            "Identifier notable search failed for rule_id=%s: %s",
+            rule_id,
+            exc,
+        )
+        return []
+
+    if identifier_matches:
+        logger.info(
+            "Identifier notable match: %d candidates for rule_id=%s terms=%s",
+            len(identifier_matches),
+            rule_id,
+            ",".join(identifier_terms),
+        )
+
+    return identifier_matches
+
+
+def _scored_candidates(
+    client: SplunkRestClient,
     investigation: dict[str, Any] | None,
+    rule_id: str,
     earliest: str,
     min_score: int,
 ) -> list[dict[str, Any]]:
-    """Try direct join by rule_id, then scored fallback by risk_object/entity/src/dest."""
-    rule_id = str(rule_id or "").strip()
-    earliest = str(earliest or "-365d").strip()
-    min_score = int(min_score or 0)
-
-    # 1. Direct attempt.
-    if rule_id:
-        try:
-            direct = client.search_export(
-                _SPL_DIRECT.format(
-                    earliest=_escape_spl(earliest),
-                    rule_id=_escape_spl(rule_id),
-                    fields=_FIELDS,
-                )
-            )
-
-            if direct:
-                logger.debug(
-                    "Direct notable match: %d candidates for rule_id=%s",
-                    len(direct),
-                    rule_id,
-                )
-                return direct
-
-        except RuntimeError as exc:
-            logger.debug(
-                "Direct notable search failed for rule_id=%s: %s",
-                rule_id,
-                exc,
-            )
-
-    # 2. Identifier fallback.
-    # This helps when Mission Control has not created an investigation object,
-    # but index=notable contains the notable/finding event whose id is embedded
-    # in incident_review_lookup.rule_id.
-    identifier_terms = _identifier_terms(rule_id)
-
-    if identifier_terms:
-        try:
-            identifier_matches = client.search_export(
-                _SPL_IDENTIFIER.format(
-                    earliest=_escape_spl(earliest),
-                    terms=_quoted_or_terms(identifier_terms),
-                    fields=_FIELDS,
-                )
-            )
-
-            if identifier_matches:
-                logger.info(
-                    "Identifier notable match: %d candidates for rule_id=%s terms=%s",
-                    len(identifier_matches),
-                    rule_id,
-                    ",".join(identifier_terms),
-                )
-                return identifier_matches
-
-        except RuntimeError as exc:
-            logger.debug(
-                "Identifier notable search failed for rule_id=%s: %s",
-                rule_id,
-                exc,
-            )
-
-    # 3. Scored fallback using investigation consolidated_findings fields.
+    """Strategy 3: scored fallback using investigation consolidated_findings fields."""
     search_term = _first_available_cf_value(
         investigation,
         (
@@ -265,7 +265,8 @@ def find_candidates(
 
     if not search_term:
         logger.info(
-            "No investigation-derived risk_object/entity/src/dest available for scored notable fallback. rule_id=%s",
+            "No investigation-derived risk_object/entity/src/dest "
+            "available for scored notable fallback. rule_id=%s",
             rule_id,
         )
         return []
@@ -317,3 +318,28 @@ def find_candidates(
     )
 
     return filtered
+
+
+def find_candidates(
+    client: SplunkRestClient,
+    rule_id: str,
+    investigation: dict[str, Any] | None,
+    earliest: str,
+    min_score: int,
+) -> list[dict[str, Any]]:
+    """Try direct join by rule_id, then scored fallback by risk_object/entity/src/dest."""
+    rule_id = str(rule_id or "").strip()
+    earliest = str(earliest or "-365d").strip()
+    min_score = int(min_score or 0)
+
+    direct = _direct_candidates(client, rule_id, earliest)
+
+    if direct:
+        return direct
+
+    identifier_matches = _identifier_candidates(client, rule_id, earliest)
+
+    if identifier_matches:
+        return identifier_matches
+
+    return _scored_candidates(client, investigation, rule_id, earliest, min_score)

@@ -18,6 +18,9 @@ from typing import Any
 # Ensure bin/ is on sys.path (required for Splunk alert action execution)
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
+# pylint: disable=wrong-import-position
+# These local modules only become importable after the sys.path.insert above,
+# so they cannot be moved to the top of the file.
 from action_payload import (
     extract_results,
     group_by_rule_id,
@@ -83,7 +86,8 @@ def dump_debug_payload(payload: dict[str, Any]) -> None:
     )
 
 
-def main() -> int:
+def main() -> int:  # pylint: disable=too-many-locals,too-many-branches,too-many-statements
+    """Entry point: read the alert action payload from stdin and process it."""
     run_id = str(uuid.uuid4())[:8]
 
     try:
@@ -107,7 +111,7 @@ def main() -> int:
             logger.info(
                 "Debug payload dumped successfully."
             )
-        except Exception as exc:
+        except Exception as exc:  # pylint: disable=broad-exception-caught
             logger.warning(
                 "Could not dump debug payload: %s",
                 exc,
@@ -361,7 +365,7 @@ def main() -> int:
                     ),
                 )
 
-            except Exception as exc:  # noqa: BLE001
+            except Exception as exc:  # pylint: disable=broad-exception-caught
                 logger.exception(
                     "IDMEFv2 mapping failed "
                     "event_uid=%s rule_id=%s: %s",

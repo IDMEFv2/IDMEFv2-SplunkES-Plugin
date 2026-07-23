@@ -12,6 +12,9 @@ import json
 import logging
 from typing import Any
 
+from common_helpers import consolidated_findings as _consolidated_findings
+from common_helpers import to_list as _to_list
+
 logger = logging.getLogger(__name__)
 
 
@@ -99,17 +102,6 @@ LOWERCASE_FIELDS = {
 }
 
 
-def _to_list(value: Any) -> list[str]:
-    """Normalize scalar/list values to a list of non-empty strings."""
-    if value is None or value == "":
-        return []
-
-    if isinstance(value, list):
-        return [str(item).strip() for item in value if str(item or "").strip()]
-
-    return [str(value).strip()]
-
-
 def _to_first_scalar(value: Any) -> str:
     """Return first useful scalar value from scalar/list input."""
     values = _to_list(value)
@@ -192,19 +184,6 @@ def _unique(values: list[str]) -> list[str]:
         result.append(text)
 
     return result
-
-
-def _consolidated_findings(investigation: dict[str, Any]) -> list[dict[str, Any]]:
-    """Return consolidated_findings as a list of dictionaries."""
-    cf = investigation.get("consolidated_findings")
-
-    if isinstance(cf, dict):
-        return [cf]
-
-    if isinstance(cf, list):
-        return [item for item in cf if isinstance(item, dict)]
-
-    return []
 
 
 def _cf_candidate_values(cf: dict[str, Any]) -> set[str]:

@@ -13,10 +13,14 @@ import base64
 from typing import Any
 from urllib import error, parse, request
 
+from config_loader import Config
+
 logger = logging.getLogger(__name__)
 
 
 class SplunkRestClient:
+    """Minimal REST client for Splunk's local management and Search REST APIs."""
+
     def __init__(
         self,
         server_uri: str,
@@ -40,6 +44,7 @@ class SplunkRestClient:
         return f"{self.server_uri}/{path.lstrip('/')}"
 
     def get_json(self, path: str, params: dict[str, Any] | None = None) -> Any:
+        """GET ``path`` with query ``params`` and return the parsed JSON body."""
         url = self._url(path)
         if params:
             filtered = {k: v for k, v in params.items() if v is not None}
@@ -119,14 +124,9 @@ class SplunkRestClient:
         self,
         url: str,
         payload: dict[str, Any],
-        auth_type: str = "none",
-        auth_token: str = "",
-        auth_username: str = "",
-        auth_password: str = "",
-        verify_ssl: bool | None = None,
-        timeout_seconds: int | None = None,
+        config: Config,
     ) -> tuple[int, Any]:
-        """POST JSON to an arbitrary external URL."""
+        """POST JSON to an arbitrary external URL, authenticated per ``config``."""
         body = json.dumps(payload, default=str).encode("utf-8")
 
         headers = {
@@ -134,21 +134,20 @@ class SplunkRestClient:
             "Accept": "*/*",
         }
 
-        normalized_auth_type = str(auth_type or "none").strip().lower()
+        normalized_auth_type = str(config.auth_type or "none").strip().lower()
 
-        if normalized_auth_type == "bearer" and auth_token:
-            headers["Authorization"] = f"Bearer {auth_token}"
+        if normalized_auth_type == "bearer" and config.auth_token:
+            headers["Authorization"] = f"Bearer {config.auth_token}"
 
-        elif normalized_auth_type == "basic" and auth_username:
-            raw_credentials = f"{auth_username}:{auth_password}".encode("utf-8")
+        elif normalized_auth_type == "basic" and config.auth_username:
+            raw_credentials = (
+                f"{config.auth_username}:{config.auth_password}"
+            ).encode("utf-8")
             encoded_credentials = base64.b64encode(raw_credentials).decode("ascii")
             headers["Authorization"] = f"Basic {encoded_credentials}"
 
-        use_ssl = verify_ssl if verify_ssl is not None else self.verify_ssl
-        timeout = timeout_seconds if timeout_seconds is not None else self.timeout
-
         ctx = ssl.create_default_context()
-        if not use_ssl:
+        if not config.verify_ssl:
             ctx.check_hostname = False
             ctx.verify_mode = ssl.CERT_NONE
 
@@ -160,7 +159,11 @@ class SplunkRestClient:
         )
 
         try:
-            with request.urlopen(req, timeout=timeout, context=ctx) as resp:
+            with request.urlopen(
+                req,
+                timeout=config.timeout_seconds,
+                context=ctx,
+            ) as resp:
                 raw = resp.read().decode("utf-8", errors="replace")
 
                 if not raw.strip():

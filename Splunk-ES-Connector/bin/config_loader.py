@@ -7,7 +7,9 @@ from typing import Any
 
 
 @dataclass
-class Config:
+class Config:  # pylint: disable=too-many-instance-attributes
+    """Resolved configuration for the IDMEFv2 internal alert action."""
+
     enable_http_delivery: bool = False
     target_url: str = ""
     auth_type: str = "none"
@@ -32,8 +34,10 @@ class Config:
 
     server_uri: str = "https://localhost:8089"
     session_key: str = ""
-    
+
+
 def load_config(payload: dict[str, Any]) -> Config:
+    """Build a Config from the raw Splunk alert action payload."""
     cfg = payload.get("configuration") or {}
 
     if not isinstance(cfg, dict):

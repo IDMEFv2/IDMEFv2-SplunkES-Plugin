@@ -1,3 +1,4 @@
+# pylint: disable=too-many-lines
 """Map internal normalized Splunk alert context to IDMEFv2 V08.
 
 Input:
@@ -22,6 +23,8 @@ import re
 import uuid
 from datetime import datetime, timezone
 from typing import Any
+
+from common_helpers import to_list as _to_list
 from idmefv2_category_mapping import find_category_mapping
 
 IDMEFV2_VERSION = "2.D.V08"
@@ -97,17 +100,6 @@ def _config_get(config: Any, name: str, default: Any = "") -> Any:
         value = getattr(config, name, default)
 
     return default if value in (None, "") else value
-
-
-def _to_list(value: Any) -> list[str]:
-    """Normalize scalar/list values to a list of non-empty strings."""
-    if value is None or value == "":
-        return []
-
-    if isinstance(value, list):
-        return [str(item).strip() for item in value if str(item or "").strip()]
-
-    return [str(value).strip()]
 
 
 def _first(value: Any) -> str:
@@ -309,9 +301,7 @@ def _priority_from_context(
 
 def _status_to_idmef(status: Any, status_label: Any = "") -> list[str]:
     raw = str(status_label or status or "").strip().lower()
-
-    if raw in STATUS_CODE_TO_NAME:
-        raw = STATUS_CODE_TO_NAME[raw]
+    raw = STATUS_CODE_TO_NAME.get(raw, raw)
 
     mapped = STATUS_NAME_TO_IDMEF.get(raw)
 
@@ -510,7 +500,12 @@ def _compose_note(normalized: dict[str, Any], notable: dict[str, Any]) -> str:
         ("event_id", join_keys.get("event_id")),
         ("detection_id", join_keys.get("detection_id")),
         ("search_name", _get_any(technical, notable, "search_name")),
-        ("status", trigger.get("status_label") or lifecycle.get("status_name") or lifecycle.get("status")),
+        (
+            "status",
+            trigger.get("status_label")
+            or lifecycle.get("status_name")
+            or lifecycle.get("status"),
+        ),
         ("owner", trigger.get("owner") or lifecycle.get("owner")),
         ("urgency", lifecycle.get("urgency")),
         ("disposition", lifecycle.get("disposition_name") or lifecycle.get("disposition")),
@@ -653,6 +648,25 @@ def _protocol_list(value: Any) -> list[str]:
     return _unique(protocols)
 
 
+def _resolve_ip(*candidates: str) -> str:
+    for candidate in candidates:
+        if _is_ipv4(candidate):
+            return candidate
+
+    return ""
+
+
+def _resolve_hostname(host_field: str, *fallback_candidates: str) -> str:
+    if host_field:
+        return host_field
+
+    for candidate in fallback_candidates:
+        if candidate and not _is_ipv4(candidate):
+            return candidate
+
+    return ""
+
+
 def _build_source(
     technical: dict[str, Any],
     notable: dict[str, Any],
@@ -666,17 +680,12 @@ def _build_source(
         "ID": str(uuid.uuid4()),
     }
 
-    if _is_ipv4(src_ip):
-        source["IP"] = src_ip
-    elif _is_ipv4(src):
-        source["IP"] = src
+    ip = _resolve_ip(src_ip, src)
 
-    hostname = ""
+    if ip:
+        source["IP"] = ip
 
-    if src_host:
-        hostname = src_host
-    elif src and not _is_ipv4(src):
-        hostname = src
+    hostname = _resolve_hostname(src_host, src)
 
     if hostname:
         source["Hostname"] = hostname
@@ -720,21 +729,12 @@ def _build_target(
         "ID": str(uuid.uuid4()),
     }
 
-    if _is_ipv4(dest_ip):
-        target["IP"] = dest_ip
-    elif _is_ipv4(dest):
-        target["IP"] = dest
-    elif _is_ipv4(risk_object):
-        target["IP"] = risk_object
+    ip = _resolve_ip(dest_ip, dest, risk_object)
 
-    hostname = ""
+    if ip:
+        target["IP"] = ip
 
-    if dest_host:
-        hostname = dest_host
-    elif dest and not _is_ipv4(dest):
-        hostname = dest
-    elif risk_object and not _is_ipv4(risk_object):
-        hostname = risk_object
+    hostname = _resolve_hostname(dest_host, dest, risk_object)
 
     if hostname:
         target["Hostname"] = hostname
@@ -805,7 +805,10 @@ def _build_attachments(
     if valid_hash:
         attachment["Hash"] = [valid_hash]
     elif file_hash:
-        attachment["Note"] = f"Original file_hash value did not include a supported algorithm prefix: {file_hash}"
+        attachment["Note"] = (
+            "Original file_hash value did not include a supported "
+            f"algorithm prefix: {file_hash}"
+        )
 
     try:
         size = int(str(file_size))
@@ -975,7 +978,7 @@ def _clean_empty_values(value: Any) -> Any:
     return value
 
 
-def map_to_idmefv2(
+def map_to_idmefv2(  # pylint: disable=too-many-locals
     normalized: dict[str, Any],
     config: Any = None,
     pred_id: str = "",

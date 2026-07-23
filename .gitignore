@@ -45,3 +45,11 @@ desktop.ini
 .coverage
 coverage.xml
 htmlcov/
+
+# Python virtual environments
+.venv/
+venv/
+env/
+ENV/
+env.bak/
+venv.bak/

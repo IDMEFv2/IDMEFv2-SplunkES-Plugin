@@ -1,3 +1,4 @@
+# pylint: disable=duplicate-code
 """CSV-based state store for IDMEFv2 alert update chaining.
 
 Persisted in: lookups/idmefv2_alert_state.csv
@@ -37,7 +38,9 @@ COLUMNS = [
 
 
 @dataclass(frozen=True)
-class AlertStateRecord:
+class AlertStateRecord:  # pylint: disable=too-many-instance-attributes
+    """One persisted row of the alert state CSV."""
+
     correlation_key: str
     last_id: str
     last_event_uid: str
@@ -103,7 +106,7 @@ class AlertStateStore:
                 self.csv_path,
             )
 
-        except Exception as exc:  # noqa: BLE001
+        except Exception as exc:  # pylint: disable=broad-exception-caught
             logger.warning(
                 "Could not load alert state store from %s: %s",
                 self.csv_path,
@@ -119,7 +122,7 @@ class AlertStateStore:
 
         record = self._records.get(key)
         return record.last_id if record else ""
-    
+
     def get_start_time(self, correlation_key: str) -> str:
         """Return the original IDMEFv2 StartTime stored for this alert."""
         key = str(correlation_key or "").strip()
@@ -130,7 +133,7 @@ class AlertStateStore:
         record = self._records.get(key)
         return record.start_time if record else ""
 
-    def upsert_success(
+    def upsert_success(  # pylint: disable=too-many-arguments,too-many-positional-arguments
         self,
         correlation_key: str,
         current_id: str,
@@ -190,7 +193,7 @@ class AlertStateStore:
 
         try:
             self._write_all()
-        except Exception as exc:  # noqa: BLE001
+        except Exception as exc:  # pylint: disable=broad-exception-caught
             # Restore the previous in-memory state if persistence fails.
             if existing is not None:
                 self._records[key] = existing

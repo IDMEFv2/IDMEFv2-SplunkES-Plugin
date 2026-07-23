@@ -1,3 +1,4 @@
+# pylint: disable=duplicate-code
 """CSV-based deduplication store for processed lifecycle events.
 
 Persisted in: lookups/idmefv2_processed_events.csv
@@ -17,6 +18,8 @@ COLUMNS = ["event_uid", "rule_id", "status", "review_epoch", "processed_at", "re
 
 
 class StateStore:
+    """Track which lifecycle event_uid values have already been processed."""
+
     def __init__(self, csv_path: str) -> None:
         self.csv_path = csv_path
         self._processed: set[str] = set()
@@ -42,7 +45,7 @@ class StateStore:
                 self.csv_path,
             )
 
-        except Exception as exc:
+        except Exception as exc:  # pylint: disable=broad-exception-caught
             logger.warning(
                 "Could not load state store from %s: %s",
                 self.csv_path,
@@ -50,6 +53,7 @@ class StateStore:
             )
 
     def is_processed(self, event_uid: str) -> bool:
+        """Return whether ``event_uid`` has already been marked processed."""
         uid = str(event_uid or "").strip()
         return uid in self._processed
 
@@ -61,6 +65,7 @@ class StateStore:
         review_epoch: str = "",
         result: str = "ok",
     ) -> bool:
+        """Persist ``event_uid`` as processed; returns False on failure."""
         uid = str(event_uid or "").strip()
 
         if not uid:
@@ -111,7 +116,7 @@ class StateStore:
 
             return True
 
-        except Exception as exc:
+        except Exception as exc:  # pylint: disable=broad-exception-caught
             logger.warning(
                 "Could not write event_uid=%s to state store %s: %s",
                 uid,
