@@ -35,7 +35,7 @@ from notable_search_service import find_candidates
 from normalizer import attach_trigger_event, build_alert_context
 from sender import send_or_log
 from idmefv2_mapper import map_to_idmefv2
-from idmefv2_validator import validate_idmefv2_static
+from idmefv2_schema_validator import describe_validation_mode, validate_idmefv2
 from splunk_rest_client import SplunkRestClient
 from state_store import StateStore
 from alert_state_store import AlertStateStore
@@ -121,6 +121,12 @@ def main() -> int:  # pylint: disable=too-many-locals,too-many-branches,too-many
         "Alert action started run_id=%s",
         run_id,
     )
+
+    full_validation_active, validation_mode_message = describe_validation_mode()
+    if full_validation_active:
+        logger.info(validation_mode_message)
+    else:
+        logger.warning(validation_mode_message)
 
     trigger_events = extract_results(payload)
 
@@ -377,7 +383,7 @@ def main() -> int:  # pylint: disable=too-many-locals,too-many-branches,too-many
                 total_failed += 1
                 continue
 
-            validation = validate_idmefv2_static(
+            validation = validate_idmefv2(
                 idmefv2_alert
             )
 
@@ -391,7 +397,7 @@ def main() -> int:  # pylint: disable=too-many-locals,too-many-branches,too-many
 
             if not validation.is_valid:
                 logger.error(
-                    "IDMEFv2 static validation failed "
+                    "IDMEFv2 validation failed "
                     "event_uid=%s rule_id=%s errors=%s",
                     event_uid,
                     rule_id,

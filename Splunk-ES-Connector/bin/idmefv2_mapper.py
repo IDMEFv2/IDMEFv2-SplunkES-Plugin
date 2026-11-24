@@ -1,11 +1,11 @@
 # pylint: disable=too-many-lines
-"""Map internal normalized Splunk alert context to IDMEFv2 V08.
+"""Map internal normalized Splunk alert context to IDMEFv2 V09.
 
 Input:
     normalized internal object produced by normalizer.py
 
 Output:
-    IDMEFv2 V08 alert payload
+    IDMEFv2 V09 alert payload
 
 Important notes:
 - IDMEFv2 Category is mapped from the static Splunk ES category lookup
@@ -27,7 +27,7 @@ from typing import Any
 from common_helpers import to_list as _to_list
 from idmefv2_category_mapping import find_category_mapping
 
-IDMEFV2_VERSION = "2.D.V08"
+IDMEFV2_VERSION = "2.D.V09"
 
 DEFAULT_ORGANISATION_NAME = "CHANGE-ME"
 DEFAULT_ORGANISATION_ID = "CHANGE-ME"
@@ -63,7 +63,7 @@ STATUS_NAME_TO_IDMEF = {
 }
 
 PRIORITY_NORMALIZATION = {
-    "critical": "High",
+    "critical": "Critical",
     "high": "High",
     "medium": "Medium",
     "med": "Medium",
@@ -73,7 +73,7 @@ PRIORITY_NORMALIZATION = {
     "unknown": "Unknown",
 }
 
-VALID_PRIORITY = {"Unknown", "Info", "Low", "Medium", "High"}
+VALID_PRIORITY = {"Unknown", "Info", "Low", "Medium", "High", "Critical"}
 VALID_CAUSE = {"Normal", "Error", "Malicious", "Malfunction", "Hazard", "Unknown"}
 
 IPV4_RE = re.compile(
@@ -446,8 +446,8 @@ def _cause_from_category(categories: list[str]) -> str:
 
     non_malicious_or_unclear_categories = {
         "Other.Undetermined",
-        "Operational.Policy Violation",
-        "Availability.HeartBeat",
+        "Operational.PolicyViolation",
+        "Availability.Heartbeat",
         "Availability.Misconfiguration",
     }
 
@@ -984,7 +984,7 @@ def map_to_idmefv2(  # pylint: disable=too-many-locals
     pred_id: str = "",
     original_start_time: str = "",
 ) -> dict[str, Any]:
-    """Map normalized internal alert object to an IDMEFv2 V08 payload.
+    """Map normalized internal alert object to an IDMEFv2 V09 payload.
 
     When pred_id is provided, the generated payload is an update for the
     same logical alert and includes root PredID=[pred_id]. The generated

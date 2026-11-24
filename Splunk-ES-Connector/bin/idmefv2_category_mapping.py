@@ -1,6 +1,6 @@
 """IDMEFv2 category mapping.
 
-This module maps Splunk ES correlation search names to IDMEFv2 V08
+This module maps Splunk ES correlation search names to IDMEFv2 V09
 Category values using the static CSV stored in:
 
     lookups/idmefv2_category_mapping.csv

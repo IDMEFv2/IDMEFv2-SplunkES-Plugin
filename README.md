@@ -1,6 +1,6 @@
 # IDMEFv2 Internal Alert App for Splunk Enterprise Security
 
-A Splunk Enterprise Security app that monitors finding lifecycle events, converts them to **IDMEFv2 V08** alerts, and delivers them to an external HTTP endpoint.
+A Splunk Enterprise Security app that monitors finding lifecycle events, converts them to **IDMEFv2 V09** alerts, and delivers them to an external HTTP endpoint.
 
 The app is lifecycle-aware: the first finding is sent as a new IDMEFv2 alert, while later status changes are sent as updates linked through `PredID`.
 
@@ -23,6 +23,7 @@ The app is lifecycle-aware: the first finding is sent as a new IDMEFv2 alert, wh
 - [Monitoring and troubleshooting](#monitoring-and-troubleshooting)
 - [State files](#state-files)
 - [Security considerations](#security-considerations)
+- [Optional full schema validation](#optional-full-schema-validation)
 - [Known limitations](#known-limitations)
 - [Project structure](#project-structure)
 - [Recommended acceptance test](#recommended-acceptance-test)
@@ -43,8 +44,8 @@ For every new lifecycle event, the app:
 2. validates and deduplicates the event;
 3. correlates it with its Splunk ES finding by `rule_id`;
 4. optionally retrieves additional Mission Control and notable-event context;
-5. maps the normalized event to an IDMEFv2 V08 JSON object;
-6. validates the essential IDMEFv2 fields;
+5. maps the normalized event to an IDMEFv2 V09 JSON object;
+6. validates the alert (essential fields, plus the full V09 JSON Schema when the optional library is installed);
 7. writes the payload locally or sends it through HTTP;
 8. updates the local state only after successful processing.
 
@@ -53,7 +54,7 @@ For every new lifecycle event, the app:
 ## Main features
 
 - Splunk ES finding creation and lifecycle monitoring.
-- IDMEFv2 V08 payload generation.
+- IDMEFv2 V09 payload generation.
 - Semantic mapping of Splunk ES review states to IDMEFv2 `Incident`, `Open`, and `Closed` lifecycle messages.
 - `PredID` chaining between updates of the same logical alert.
 - Stable `StartTime` across the entire lifecycle.
@@ -91,8 +92,8 @@ idmefv2_internal_alert_action
         +--> lifecycle correlation
         +--> Mission Control lookup
         +--> notable enrichment
-        +--> IDMEFv2 V08 mapping
-        +--> static validation
+        +--> IDMEFv2 V09 mapping
+        +--> validation (static, plus full schema if enabled)
         +--> deduplication and state update
         |
         v
@@ -174,7 +175,7 @@ chmod +x package-app.sh
 The script creates:
 
 ```text
-release/Splunk-ES-Connector-1.0.0.tar.gz
+release/Splunk-ES-Connector-1.1.0.tar.gz
 ```
 
 The packaging script excludes:
@@ -500,7 +501,7 @@ new predecessor chain.
 
 ## Category mapping
 
-The app maps Splunk ES correlation-search names to IDMEFv2 V08 categories through:
+The app maps Splunk ES correlation-search names to IDMEFv2 V09 categories through:
 
 ```text
 lookups/idmefv2_category_mapping.csv
@@ -756,9 +757,36 @@ correlation_key,last_id,last_event_uid,last_status,last_review_epoch,start_time,
 
 ---
 
+## Optional full schema validation
+
+By default the connector runs a static validation that checks the essential IDMEFv2 fields. Full validation against the IDMEFv2 V09 JSON Schema (`bin/schemas/V09.json`) is available as an option and needs the `jsonschema` library, which Splunk does not provide and the app does not bundle.
+
+Each alert action run logs which mode is active (`$SPLUNK_HOME/var/log/splunk/idmefv2_internal_alert_app.log`):
+
+- `Full V09 JSON Schema validation is active (jsonschema <version>).` (INFO)
+- `Only static IDMEFv2 validation is active: ...` (WARNING): the library is missing or could not be loaded.
+
+To enable it, on the Splunk host, from the app folder:
+
+```bash
+cd "$SPLUNK_HOME/etc/apps/Splunk-ES-Connector"
+bash install-optional-deps.sh
+```
+
+The script installs the version pinned in `requirements-optional.txt` into `bin/lib`, using Splunk's own Python (override with `PYTHON_BIN`). No restart is needed: the next alert action run picks it up.
+
+Behavior:
+
+- An alert that fails the static or the full validation is not sent, and the errors are logged (up to 20 per alert).
+- If the library itself fails while validating (not because of the data), the alert is validated statically only and a warning is logged.
+- Upgrading the app replaces `bin/lib`: run `install-optional-deps.sh` again after every upgrade.
+- `bin/lib` is excluded from the repository and from the package built by `package-app.sh`.
+
+---
+
 ## Known limitations
 
-- Validation is currently static and does not perform full validation against the complete IDMEFv2 V08 JSON Schema.
+- By default validation is static. Full validation against the IDMEFv2 V09 JSON Schema is optional and requires installing a library (see [Optional full schema validation](#optional-full-schema-validation)).
 - Any HTTP `2xx` response is treated as successful; receiver-specific response semantics are not interpreted.
 - Successful HTTP payloads are not automatically archived in the local JSON history.
 - `Source.ID` and `Target.ID` are generated independently for each message.
@@ -778,8 +806,11 @@ correlation_key,last_id,last_event_uid,last_status,last_review_epoch,start_time,
 | `bin/incident_review_service.py` | Reads lifecycle history and status labels. |
 | `bin/notable_search_service.py` | Performs optional notable-event enrichment. |
 | `bin/normalizer.py` | Builds the internal normalized alert context. |
-| `bin/idmefv2_mapper.py` | Maps normalized data to IDMEFv2 V08. |
+| `bin/idmefv2_mapper.py` | Maps normalized data to IDMEFv2 V09. |
 | `bin/idmefv2_validator.py` | Performs essential static validation. |
+| `bin/idmefv2_schema_validator.py` | Adds optional full JSON Schema validation when `jsonschema` is installed in `bin/lib`. |
+| `bin/schemas/V09.json` | IDMEFv2 V09 JSON Schema used by the optional full validation. |
+| `bin/lib/` | Optional libraries, created by `install-optional-deps.sh` (not part of the repository or of the package). |
 | `bin/idmefv2_category_mapping.py` | Loads and applies category mappings. |
 | `bin/splunk_rest_client.py` | Calls local Splunk APIs and external HTTP endpoints. |
 | `bin/sender.py` | Sends IDMEFv2 payloads or writes local JSON files. |
@@ -792,6 +823,8 @@ correlation_key,last_id,last_event_uid,last_status,last_review_epoch,start_time,
 | `lookups/idmefv2_category_mapping.csv` | Splunk search-name to IDMEFv2 category mapping. |
 | `lookups/idmefv2_processed_events.csv` | Deduplication state. |
 | `lookups/idmefv2_alert_state.csv` | IDMEFv2 lifecycle-chain state. |
+| `requirements-optional.txt` | Pinned optional libraries (`jsonschema`). |
+| `install-optional-deps.sh` | Installs the optional libraries into `bin/lib`. |
 | `package-app.sh` | Creates the Splunk-installable package. |
 
 ---

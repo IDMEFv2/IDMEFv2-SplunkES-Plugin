@@ -6,7 +6,7 @@
 set -euo pipefail
 
 APP_NAME="Splunk-ES-Connector"
-VERSION="1.0.0"
+VERSION="1.1.0"
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 APP_DIR="${SCRIPT_DIR}"
@@ -26,6 +26,7 @@ cd "${PARENT_DIR}"
 
 tar -czf "${OUTPUT_PATH}" \
   --exclude="${APP_NAME}/local/*" \
+  --exclude="${APP_NAME}/bin/lib" \
   --exclude="${APP_NAME}/__pycache__" \
   --exclude="${APP_NAME}/bin/__pycache__" \
   --exclude="${APP_NAME}/appserver/__pycache__" \

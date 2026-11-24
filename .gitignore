@@ -2,6 +2,9 @@
 local/*
 !local/.gitkeep
 
+# Optional libraries installed by install-optional-deps.sh
+Splunk-ES-Connector/bin/lib/
+
 # Python generated files
 __pycache__/
 *.py[cod]

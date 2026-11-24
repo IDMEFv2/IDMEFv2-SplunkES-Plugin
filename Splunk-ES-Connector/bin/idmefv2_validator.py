@@ -1,15 +1,8 @@
-"""Static IDMEFv2 V08 validation.
+"""Static IDMEFv2 V09 validation.
 
-This is intentionally NOT a full JSON Schema validation.
-
-Current purpose:
-- block clearly incomplete or malformed IDMEFv2 alerts;
-- prevent accidental delivery of the internal normalized object;
-- keep a clear validation hook for future formal V08 schema validation.
-
-Future work:
-- replace or extend this module with formal validation against V08.json,
-  once the Splunk/team packaging strategy is confirmed.
+This is intentionally NOT a full JSON Schema validation: it checks the
+essential fields so incomplete or malformed alerts are never delivered.
+Full schema validation is optional and lives in idmefv2_schema_validator.py.
 """
 
 from __future__ import annotations
@@ -20,12 +13,12 @@ from typing import Any
 from uuid import UUID
 
 
-IDMEFV2_VERSION = "2.D.V08"
+IDMEFV2_VERSION = "2.D.V09"
 
-VALID_TYPE = {"Cyber", "Physical", "Availability", "Combined"}
+VALID_TYPE = {"Cyber", "Physical", "Availability", "Hazards", "Combined"}
 VALID_CAUSE = {"Normal", "Error", "Malicious", "Malfunction", "Hazard", "Unknown"}
-VALID_STATUS = {"Event", "Incident", "Open", "Closed", "FalsePositive", "Reported"}
-VALID_PRIORITY = {"Unknown", "Info", "Low", "Medium", "High"}
+VALID_STATUS = {"Event", "Incident", "Open", "Closed", "FalsePositive", "Obsolete"}
+VALID_PRIORITY = {"Unknown", "Info", "Low", "Medium", "High", "Critical"}
 
 INTERNAL_ONLY_TOP_LEVEL_FIELDS = {
     "source_model",
@@ -218,10 +211,7 @@ def validate_idmefv2_static(alert: dict[str, Any]) -> ValidationResult:
     if an essential field is missing, the alert must not be sent.
     """
     errors: list[str] = []
-    warnings: list[str] = [
-        "Static IDMEFv2 validation is active. "
-        "Full V08 JSON Schema validation is not implemented yet."
-    ]
+    warnings: list[str] = []
 
     if not isinstance(alert, dict):
         return ValidationResult(
